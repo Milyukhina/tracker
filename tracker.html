@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WB Travel · Трекер оператора</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+    * { box-sizing: border-box; font-family: 'Comic Sans MS', 'Comic Sans', cursive, sans-serif; }
+    body {
+        background: linear-gradient(135deg, #8B5CF6 0%, #7C4DFF 45%, #6D3FE0 100%);
+        min-height: 100vh; margin: 0; padding: 24px;
+        display: flex; justify-content: center; align-items: flex-start;
+    }
+    .card { max-width: 1300px; width: 100%; background: #fff; border-radius: 28px;
+        box-shadow: 0 30px 70px -20px rgba(50,20,120,0.55); padding: 0 0 32px; overflow: hidden; }
+    .brand-header { background: linear-gradient(135deg, #8B5CF6 0%, #7C4DFF 55%, #6D3FE0 100%);
+        color: #fff; padding: 30px 36px 26px; position: relative; overflow: hidden; }
+    .brand-header h1 { margin: 0 0 4px; font-size: 2rem; }
+    .brand-header h2 { margin: 0 0 14px; font-size: 2rem; }
+    .brand-header .dept { font-size: 1rem; opacity: 0.92; }
+    .brand-header .pill { display: inline-block; margin-left: 10px;
+        background: rgba(255,255,255,0.22); border: 1px solid rgba(255,255,255,0.35);
+        border-radius: 40px; padding: 3px 14px; font-size: 0.8rem; font-weight: 700; }
+    .cloud-status { display: inline-flex; align-items: center; gap: 6px;
+        font-size: 0.72rem; font-weight: 700; padding: 3px 10px; border-radius: 40px;
+        background: rgba(255,255,255,0.25); color: #fff; margin-left: 10px;
+        border: 1px solid rgba(255,255,255,0.35); }
+    .cloud-status .cloud-dot { width: 8px; height: 8px; border-radius: 50%; background: #B9A3F0; }
+    .cloud-status.online .cloud-dot { background: #5DE28A; box-shadow: 0 0 8px #5DE28A; }
+    .cloud-status.offline .cloud-dot { background: #FFB1B1; }
+    .content { padding: 28px 32px 0; }
+
+    .line-selector { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 22px; }
+    .line-btn { border: 2px solid #E4DDF7; background: #F8F6FF; border-radius: 20px;
+        padding: 16px 20px; cursor: pointer; text-align: left; transition: 0.18s;
+        display: flex; align-items: center; gap: 14px; font-family: inherit; }
+    .line-btn.active { border-color: #7C4DFF; background: linear-gradient(135deg, #F3EEFF, #EBE3FF);
+        box-shadow: 0 10px 24px -12px rgba(124,77,255,0.5); }
+    .line-btn .num { width: 48px; height: 48px; border-radius: 14px; flex-shrink: 0;
+        background: #E4DDF7; color: #6D3FE0; font-weight: 700; font-size: 1.3rem;
+        display: flex; align-items: center; justify-content: center; }
+    .line-btn.active .num { background: #7C4DFF; color: #fff; }
+    .line-btn .line-title { font-weight: 700; color: #2E1A6B; font-size: 1rem; margin-bottom: 2px; }
+    .line-btn .line-desc { font-size: 0.8rem; color: #7A6BAF; line-height: 1.35; }
+    @media (max-width: 700px) { .line-selector { grid-template-columns: 1fr; } }
+
+    .operator-bar { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 14px;
+        background: #F8F6FF; border-radius: 20px; padding: 16px 18px;
+        border: 1px solid #E4DDF7; margin-bottom: 22px; }
+    @media (max-width: 900px) { .operator-bar { grid-template-columns: 1fr 1fr; } }
+    .field label { display: block; font-size: 0.72rem; font-weight: 700;
+        text-transform: uppercase; letter-spacing: 0.6px; color: #7A6BAF; margin-bottom: 6px; }
+    .field select, .field input { width: 100%; border: 1px solid #D8CDF2; border-radius: 40px;
+        padding: 11px 16px; font-size: 0.95rem; font-weight: 500; color: #2E1A6B;
+        background: #fff; outline: none; font-family: inherit; }
+
+    .shift-status { display: flex; align-items: center; justify-content: space-between;
+        gap: 16px; flex-wrap: wrap; background: linear-gradient(135deg, #2E1A6B, #6D3FE0);
+        color: white; border-radius: 22px; padding: 16px 22px; margin-bottom: 22px; }
+    .shift-status .clock { font-size: 1.6rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .shift-status .status-info { display: flex; gap: 20px; flex-wrap: wrap;
+        font-size: 0.88rem; align-items: center; }
+    .shift-status .status-info b { font-size: 1.1rem; }
+    .btn-shift { background: #fff; color: #2E1A6B; border: none; border-radius: 50px;
+        padding: 12px 22px; font-weight: 700; font-size: 0.95rem; cursor: pointer;
+        font-family: inherit; }
+    .btn-shift.end { background: #ffd7d7; color: #8b1e1e; }
+    .btn-shift:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    .break-bar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+        background: #FFF6E5; border: 1px solid #F2DDA8; border-radius: 18px;
+        padding: 14px 18px; margin-bottom: 22px; }
+    .break-bar input[type="number"] { width: 90px; border: 1px solid #E2CE9A;
+        border-radius: 40px; padding: 9px 12px; font-size: 0.95rem; font-weight: 700;
+        color: #7A5200; text-align: center; font-family: inherit; }
+    .btn-break { background: #F5B942; color: #4A3200; border: none; border-radius: 50px;
+        padding: 10px 20px; font-weight: 700; font-size: 0.9rem; cursor: pointer; font-family: inherit; }
+    .btn-break:disabled { opacity: 0.45; cursor: not-allowed; }
+    .break-summary { margin-left: auto; font-size: 0.85rem; color: #7A5200; font-weight: 600; }
+
+    .activity-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 14px; margin-bottom: 26px; }
+    .activity-card { background: #F8F6FF; border-radius: 20px; padding: 16px;
+        border: 1px solid #E4DDF7; position: relative; overflow: hidden; }
+    .activity-card .accent { position: absolute; top: 0; left: 0; bottom: 0; width: 5px; }
+    .activity-card h4 { margin: 0 0 4px 10px; font-size: 0.98rem; color: #2E1A6B; }
+    .activity-card .sub { margin-left: 10px; font-size: 0.72rem; color: #8A7BBF;
+        font-weight: 700; text-transform: uppercase; }
+    .counter { display: flex; align-items: center; justify-content: space-between;
+        margin: 12px 0 8px 10px; gap: 8px; }
+    .count-value { font-size: 2.4rem; font-weight: 700; color: #2E1A6B; line-height: 1; }
+    .btn-group { display: flex; gap: 8px; }
+    .btn-plus, .btn-minus { width: 58px; height: 58px; border-radius: 50%; border: none;
+        cursor: pointer; font-size: 1.8rem; font-weight: 700; color: #fff;
+        display: flex; align-items: center; justify-content: center; font-family: inherit; }
+    .btn-minus { background: #E4DDF7 !important; color: #6D3FE0 !important; font-size: 2rem; }
+    .btn-plus:disabled, .btn-minus:disabled { opacity: 0.35; cursor: not-allowed; }
+    .last-time { margin-left: 10px; font-size: 0.75rem; color: #8A7BBF; min-height: 15px; }
+
+    .comment-bar { background: #F0F7FF; border: 1px solid #C8DDF0;
+        border-radius: 18px; padding: 14px 18px; margin-bottom: 22px;
+        display: flex; flex-direction: column; gap: 10px; }
+    .comment-bar textarea { flex: 1; min-width: 220px; min-height: 60px; resize: vertical;
+        border: 1px solid #C8DDF0; border-radius: 14px; padding: 10px 14px;
+        font-size: 0.9rem; font-family: inherit; color: #1e3b5c; outline: none; }
+    .btn-comment { background: #2b6f9e; color: #fff; border: none; border-radius: 50px;
+        padding: 10px 22px; font-weight: 700; cursor: pointer; font-family: inherit; }
+    .btn-comment:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    .panel { background: #FBF9FF; border-radius: 24px; padding: 20px 22px;
+        border: 1px solid #ECE5FB; margin-bottom: 20px; }
+    .panel-title { font-weight: 700; color: #2E1A6B; font-size: 1.05rem; margin-bottom: 14px; }
+    .chart-wrap { position: relative; height: 230px; }
+    .log-list { max-height: 220px; overflow-y: auto; font-size: 0.85rem;
+        border-radius: 14px; background: #FBF9FF; padding: 8px 4px; border: 1px solid #ECE5FB; }
+    .log-item { display: flex; justify-content: space-between; align-items: center;
+        padding: 6px 12px; border-bottom: 1px solid #F0EBFF; color: #4A3A7A; }
+    .log-item .time { font-weight: 700; color: #2E1A6B; min-width: 62px; }
+    .log-item .label { flex: 1; margin-left: 10px; }
+    .log-item .badge { font-size: 0.66rem; font-weight: 700; padding: 2px 8px;
+        border-radius: 20px; color: #fff; }
+    .empty-log { text-align: center; color: #B9A3F0; padding: 18px; font-style: italic; }
+</style>
+</head>
+<body>
+<div class="card">
+    <div class="brand-header">
+        <h1>Личный кабинет</h1>
+        <h2>WB Travel</h2>
+        <div class="dept">
+            Департамент клиентского опыта и сервиса
+            <span class="pill" id="linePill">1 линия</span>
+            <span class="cloud-status" id="cloudStatus">
+                <span class="cloud-dot"></span>
+                <span id="cloudStatusText">проверка...</span>
+            </span>
+        </div>
+    </div>
+
+    <div class="content">
+        <div class="line-selector">
+            <button class="line-btn active" data-line="1" id="lineBtn1">
+                <div class="num">1</div>
+                <div>
+                    <div class="line-title">Первая линия</div>
+                    <div class="line-desc">Входящие звонки, чаты, запросы, письма, создание проблем</div>
+                </div>
+            </button>
+            <button class="line-btn" data-line="2" id="lineBtn2">
+                <div class="num">2</div>
+                <div>
+                    <div class="line-title">Вторая линия</div>
+                    <div class="line-desc">Исходящие звонки, чаты, помощь 1 линии, письма, отработка</div>
+                </div>
+            </button>
+        </div>
+
+        <div class="operator-bar">
+            <div class="field">
+                <label>Оператор</label>
+                <select id="operatorSelect">
+                    <option value="">— выберите —</option>
+                </select>
+            </div>
+            <div class="field">
+                <label>Линия (авто)</label>
+                <input type="text" id="lineInfo" readonly placeholder="—">
+            </div>
+            <div class="field">
+                <label>Смена (авто)</label>
+                <input type="text" id="shiftInfo" readonly placeholder="—">
+            </div>
+            <div class="field">
+                <label>Руководитель (авто)</label>
+                <input type="text" id="supervisorInfo" readonly placeholder="—">
+            </div>
+        </div>
+
+        <div class="shift-status">
+            <div>
+                <div style="font-size:0.75rem; text-transform:uppercase; letter-spacing:1px; opacity:0.8;">Длительность смены</div>
+                <div class="clock" id="shiftClock">00:00:00</div>
+            </div>
+            <div class="status-info">
+                <div>Начало: <b id="startTimeLabel">—</b></div>
+                <div>Активностей: <b id="totalActivities">0</b></div>
+                <div>Перерыв: <b id="breakTimeLabel">0 мин</b></div>
+                <div>Статус: <b id="shiftStateLabel">не начата</b></div>
+            </div>
+            <div style="display:flex; gap:10px;">
+                <button class="btn-shift" id="startBtn">▶ Старт смены</button>
+                <button class="btn-shift end" id="endBtn" disabled>■ Завершить</button>
+            </div>
+        </div>
+
+        <div class="break-bar">
+            <span style="font-size:1.4rem;">☕</span>
+            <span style="font-weight:700; color:#7A5200;">Перерыв</span>
+            <input type="number" id="breakMinutes" value="15" min="1" step="1" disabled>
+            <span style="font-size:0.85rem; color:#7A5200; font-weight:700;">мин.</span>
+            <button class="btn-break" id="addBreakBtn" disabled>Добавить в смену</button>
+            <div class="break-summary">Всего: <b id="breakTotalMin">0 мин</b></div>
+        </div>
+
+        <div style="font-weight:700; color:#2E1A6B; margin-bottom:12px; font-size:1.1rem;">
+            🎯 Активности <span style="background:#E4DDF7; color:#6D3FE0; padding:3px 12px;
+            border-radius:40px; font-size:0.72rem; text-transform:uppercase;" id="lineChip">1 линия</span>
+        </div>
+        <div class="activity-grid" id="activityGrid"></div>
+
+        <div class="comment-bar">
+            <div style="font-weight:700; color:#1e3b5c;">💬 Комментарий к смене</div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                <textarea id="commentInput" placeholder="Например: пиковая нагрузка в 14:00..." disabled></textarea>
+                <button class="btn-comment" id="addCommentBtn" disabled>Добавить</button>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-title">📈 Выгрузка по часам</div>
+            <div class="chart-wrap"><canvas id="hoursChart"></canvas></div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-title">🧾 Журнал событий</div>
+            <div class="log-list" id="logList">
+                <div class="empty-log">Нажмите «Старт смены».</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function(){
+    // ============================================================
+    // ⚠️ ВСТАВЬ СЮДА URL ВЕБ-ПРИЛОЖЕНИЯ
+    // ============================================================
+    const GOOGLE_SCRIPT_URL = 'ВСТАВЬ_СЮДА_URL_ИЗ_РАЗВЁРТЫВАНИЯ';
+    // ============================================================
+
+    const LINE_CONFIG = {
+        1: {
+            label: '1 линия',
+            activities: [
+                { key: 'in_calls',    channel: 'Звонки',   label: 'Входящие звонки',   color: '#7C4DFF' },
+                { key: 'in_chats',    channel: 'Чаты',     label: 'Чаты',              color: '#9B6BFF' },
+                { key: 'in_queries',  channel: 'Запросы',  label: 'Запросы в чатах',   color: '#B58CFF' },
+                { key: 'in_emails',   channel: 'Письма',   label: 'Входящие письма',   color: '#C9A8FF' },
+                { key: 'in_problems', channel: 'Проблемы', label: 'Создание проблем',  color: '#6D3FE0' }
+            ]
+        },
+        2: {
+            label: '2 линия',
+            activities: [
+                { key: 'out_calls',      channel: 'Звонки',    label: 'Исходящие звонки',              color: '#7C4DFF' },
+                { key: 'chats',          channel: 'Чаты',      label: 'Чаты',                          color: '#9B6BFF' },
+                { key: 'out_queries',    channel: 'Запросы',   label: 'Запросы в чатах',               color: '#B58CFF' },
+                { key: 'help_common',    channel: 'Помощь 1Л', label: 'Помощь 1 линии в общем чате',  color: '#C9A8FF' },
+                { key: 'help_pm',        channel: 'Помощь 1Л', label: 'Помощь 1 линии в ЛС',          color: '#A87BFF' },
+                { key: 'out_emails',     channel: 'Письма',    label: 'Исходящие письма',              color: '#8B5CF6' },
+                { key: 'solve_problems', channel: 'Проблемы',  label: 'Отработка проблем',             color: '#6D3FE0' }
+            ]
+        }
+    };
+
+    let state = {
+        line: 1,
+        shiftActive: false,
+        startTime: null,
+        endTime: null,
+        counts: {},
+        cancelled: {},
+        log: [],
+        breaks: [],
+        comments: [],
+        timerId: null,
+        employees: []
+    };
+
+    const $ = id => document.getElementById(id);
+    const lineBtn1 = $('lineBtn1'), lineBtn2 = $('lineBtn2');
+    const linePill = $('linePill'), lineChip = $('lineChip');
+    const operatorSelect = $('operatorSelect');
+    const lineInfo = $('lineInfo');
+    const shiftInfo = $('shiftInfo');
+    const supervisorInfo = $('supervisorInfo');
+    const shiftClock = $('shiftClock');
+    const startTimeLabel = $('startTimeLabel');
+    const totalActivitiesEl = $('totalActivities');
+    const shiftStateLabel = $('shiftStateLabel');
+    const breakTimeLabel = $('breakTimeLabel');
+    const startBtn = $('startBtn');
+    const endBtn = $('endBtn');
+    const activityGrid = $('activityGrid');
+    const logList = $('logList');
+    const breakMinutesInput = $('breakMinutes');
+    const addBreakBtn = $('addBreakBtn');
+    const breakTotalMin = $('breakTotalMin');
+    const commentInput = $('commentInput');
+    const addCommentBtn = $('addCommentBtn');
+    const cloudStatus = $('cloudStatus');
+    const cloudStatusText = $('cloudStatusText');
+
+    let chartInstance = null;
+
+    function fmtTime(date) { return date.toLocaleTimeString('ru-RU', { hour12: false }); }
+    function fmtDuration(ms) {
+        const s = Math.max(0, Math.floor(ms / 1000));
+        return String(Math.floor(s / 3600)).padStart(2,'0') + ':' +
+               String(Math.floor((s%3600)/60)).padStart(2,'0') + ':' +
+               String(s%60).padStart(2,'0');
+    }
+    function fmtMin(m) { return m < 60 ? m + ' мин' : Math.floor(m/60) + ' ч ' + (m%60) + ' мин'; }
+    function showToast(msg, type) {
+        // простой тост
+        const t = document.createElement('div');
+        t.textContent = msg;
+        t.style.cssText = 'position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:#2E1A6B;color:#fff;padding:14px 26px;border-radius:50px;font-weight:700;z-index:9999;font-family:Comic Sans MS;';
+        if (type === 'success') t.style.background = '#2f8f5b';
+        if (type === 'warn') t.style.background = '#D4880F';
+        document.body.appendChild(t);
+        setTimeout(() => t.remove(), 2500);
+    }
+    function currentActivities() { return LINE_CONFIG[state.line].activities; }
+    function totalBreakMinutes() { return state.breaks.reduce((s, b) => s + b.minutes, 0); }
+    function totalCancelled() { return Object.values(state.cancelled).reduce((s, v) => s + v, 0); }
+
+    function setCloudStatus(status, text) {
+        cloudStatus.classList.remove('online', 'offline');
+        if (status) cloudStatus.classList.add(status);
+        cloudStatusText.textContent = text;
+        if (status === 'online') {
+            clearTimeout(setCloudStatus._t);
+            setCloudStatus._t = setTimeout(() => { cloudStatusText.textContent = 'онлайн'; }, 2000);
+        }
+    }
+
+    // ============ ЗАГРУЗКА СОТРУДНИКОВ ============
+    function loadEmployees() {
+        if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes('https://script.google.com/macros/s/AKfycbyWbdwods4S_MThLZ8qWTso3jtwfE9tyh7cAu-REeANLLqNe8tG7bmg8dxkjP1jPuN5Qg/exec')) {
+            setCloudStatus('offline', 'не настроено');
+            return;
+        }
+        fetch(GOOGLE_SCRIPT_URL + '?action=employees&t=' + Date.now())
+            .then(r => r.json())
+            .then(data => {
+                state.employees = data.employees || [];
+                operatorSelect.innerHTML = '<option value="">— выберите —</option>';
+                state.employees.forEach(emp => {
+                    const opt = document.createElement('option');
+                    opt.value = emp.full;
+                    opt.textContent = emp.short;
+                    opt.dataset.line = emp.line;
+                    opt.dataset.shift = emp.shift;
+                    opt.dataset.supervisor = emp.supervisor;
+                    opt.dataset.direction = emp.direction;
+                    operatorSelect.appendChild(opt);
+                });
+                setCloudStatus('online', 'синхронизировано');
+            })
+            .catch(e => {
+                console.error('Ошибка загрузки сотрудников:', e);
+                setCloudStatus('offline', 'ошибка');
+            });
+    }
+
+    operatorSelect.addEventListener('change', () => {
+        const opt = operatorSelect.selectedOptions[0];
+        if (!opt || !opt.value) {
+            lineInfo.value = '';
+            shiftInfo.value = '';
+            supervisorInfo.value = '';
+            return;
+        }
+        lineInfo.value = opt.dataset.line || '';
+        shiftInfo.value = opt.dataset.shift || '';
+        supervisorInfo.value = opt.dataset.supervisor || '';
+    });
+
+    // ============ ПЕРЕКЛЮЧЕНИЕ ЛИНИИ ============
+    function setLine(line) {
+        if (state.shiftActive) { showToast('Нельзя менять линию во время смены', 'warn'); return; }
+        state.line = line;
+        lineBtn1.classList.toggle('active', line === 1);
+        lineBtn2.classList.toggle('active', line === 2);
+        linePill.textContent = line + ' линия';
+        lineChip.textContent = line + ' линия';
+        buildActivityCards();
+        resetCounts();
+    }
+    lineBtn1.addEventListener('click', () => setLine(1));
+    lineBtn2.addEventListener('click', () => setLine(2));
+
+    function resetCounts() {
+        state.counts = {};
+        state.cancelled = {};
+        currentActivities().forEach(a => {
+            state.counts[a.key] = 0;
+            state.cancelled[a.key] = 0;
+        });
+    }
+
+    // ============ КАРТОЧКИ АКТИВНОСТЕЙ ============
+    function buildActivityCards() {
+        activityGrid.innerHTML = '';
+        currentActivities().forEach(a => {
+            if (state.counts[a.key] === undefined) state.counts[a.key] = 0;
+            if (state.cancelled[a.key] === undefined) state.cancelled[a.key] = 0;
+
+            const card = document.createElement('div');
+            card.className = 'activity-card';
+            card.innerHTML = `
+                <div class="accent" style="background:${a.color}"></div>
+                <h4>${a.label}</h4>
+                <div class="sub">${a.channel}</div>
+                <div class="counter">
+                    <div class="count-value" id="count-${a.key}">0</div>
+                    <div class="btn-group">
+                        <button class="btn-minus" data-key="${a.key}" disabled>−</button>
+                        <button class="btn-plus" data-key="${a.key}" style="background:${a.color}" disabled>+</button>
+                    </div>
+                </div>
+                <div class="last-time" id="last-${a.key}">—</div>
+            `;
+            activityGrid.appendChild(card);
+        });
+        // Привязка событий
+        activityGrid.querySelectorAll('.btn-plus').forEach(b => {
+            b.addEventListener('click', () => registerActivity(b.dataset.key));
+        });
+        activityGrid.querySelectorAll('.btn-minus').forEach(b => {
+            b.addEventListener('click', () => cancelActivity(b.dataset.key));
+        });
+        updateMinusButtons();
+    }
+
+    function updateMinusButtons() {
+        currentActivities().forEach(a => {
+            const btn = document.querySelector(`.btn-minus[data-key="${a.key}"]`);
+            const plus = document.querySelector(`.btn-plus[data-key="${a.key}"]`);
+            if (btn) btn.disabled = !state.shiftActive || (state.counts[a.key] || 0) <= 0;
+            if (plus) plus.disabled = !state.shiftActive;
+        });
+    }
+
+    // ============ ОТПРАВКА В GOOGLE ============
+    function sendToGoogleSheet(params) {
+        const selectedOpt = operatorSelect.selectedOptions[0];
+        if (!selectedOpt || !selectedOpt.value) {
+            showToast('Сначала выберите оператора', 'warn');
+            return;
+        }
+        const fd = new FormData();
+        fd.append('operator', selectedOpt.value);
+        fd.append('line', state.line);
+        fd.append('type', params.type || 'activity');
+        fd.append('activity', params.activity || '');
+        fd.append('channel', params.channel || '');
+        fd.append('details', params.details || '');
+
+        fetch(GOOGLE_SCRIPT_URL, { method: 'POST', body: fd, mode: 'no-cors' })
+            .then(() => setCloudStatus('online', 'синхронизировано'))
+            .catch(e => { console.error(e); setCloudStatus('offline', 'ошибка'); });
+    }
+
+    // ============ АКТИВНОСТИ ============
+    function registerActivity(key) {
+        if (!state.shiftActive) return;
+        const now = new Date();
+        const act = currentActivities().find(a => a.key === key);
+        state.counts[key]++;
+        state.log.push({ type: 'activity', key, timestamp: now });
+        document.getElementById('count-' + key).textContent = state.counts[key];
+        document.getElementById('last-' + key).textContent = 'Последняя: ' + fmtTime(now);
+        updateStatus(); updateSummary(); renderLog(); updateChart(); updateMinusButtons();
+
+        sendToGoogleSheet({ activity: act.label, channel: act.channel, type: 'activity' });
+    }
+
+    function cancelActivity(key) {
+        if (!state.shiftActive) return;
+        if ((state.counts[key] || 0) <= 0) return;
+        const now = new Date();
+        const act = currentActivities().find(a => a.key === key);
+        state.counts[key]--;
+        state.cancelled[key] = (state.cancelled[key] || 0) + 1;
+        state.log.push({ type: 'cancel', key, timestamp: now });
+        document.getElementById('count-' + key).textContent = state.counts[key];
+        document.getElementById('last-' + key).textContent = 'Отмена: ' + fmtTime(now);
+        updateStatus(); updateSummary(); renderLog(); updateChart(); updateMinusButtons();
+
+        sendToGoogleSheet({ activity: act.label, channel: act.channel, type: 'cancel', details: 'отмена' });
+    }
+
+    // ============ ПЕРЕРЫВ ============
+    addBreakBtn.addEventListener('click', () => {
+        if (!state.shiftActive) return;
+        const min = parseInt(breakMinutesInput.value, 10);
+        if (isNaN(min) || min <= 0) { showToast('Укажите минуты', 'warn'); return; }
+        const now = new Date();
+        state.breaks.push({ timestamp: now, minutes: min });
+        state.log.push({ type: 'break', minutes: min, timestamp: now });
+        updateStatus(); updateSummary(); renderLog(); updateChart();
+        sendToGoogleSheet({ activity: 'Перерыв', type: 'break', details: min });
+        showToast('Перерыв ' + min + ' мин добавлен', 'success');
+    });
+
+    // ============ КОММЕНТАРИЙ ============
+    addCommentBtn.addEventListener('click', () => {
+        if (!state.shiftActive) return;
+        const text = commentInput.value.trim();
+        if (!text) return;
+        const now = new Date();
+        state.comments.push({ text, timestamp: now });
+        state.log.push({ type: 'comment', text, timestamp: now });
+        commentInput.value = '';
+        renderLog();
+        sendToGoogleSheet({ activity: 'Комментарий', type: 'comment', details: text });
+        showToast('Комментарий добавлен', 'success');
+    });
+
+    // ============ СМЕНА ============
+    startBtn.addEventListener('click', () => {
+        if (state.shiftActive) return;
+        const selectedOpt = operatorSelect.selectedOptions[0];
+        if (!selectedOpt || !selectedOpt.value) { showToast('Выберите оператора', 'warn'); return; }
+        state.shiftActive = true;
+        state.startTime = new Date();
+        state.endTime = null;
+        state.log = [];
+        state.breaks = [];
+        state.comments = [];
+        resetCounts();
+        buildActivityCards();
+
+        startBtn.disabled = true;
+        endBtn.disabled = false;
+        operatorSelect.disabled = true;
+        lineBtn1.disabled = true;
+        lineBtn2.disabled = true;
+        addBreakBtn.disabled = false;
+        breakMinutesInput.disabled = false;
+        commentInput.disabled = false;
+        addCommentBtn.disabled = false;
+        shiftStateLabel.textContent = 'активна';
+        startTimeLabel.textContent = fmtTime(state.startTime);
+
+        if (state.timerId) clearInterval(state.timerId);
+        state.timerId = setInterval(() => {
+            shiftClock.textContent = fmtDuration(new Date() - state.startTime);
+        }, 1000);
+
+        sendToGoogleSheet({ activity: 'Старт смены', type: 'shift_start' });
+        showToast('Смена начата', 'success');
+    });
+
+    endBtn.addEventListener('click', () => {
+        if (!state.shiftActive) return;
+        state.shiftActive = false;
+        state.endTime = new Date();
+        if (state.timerId) clearInterval(state.timerId);
+        document.querySelectorAll('.btn-plus, .btn-minus').forEach(b => b.disabled = true);
+        addBreakBtn.disabled = true;
+        breakMinutesInput.disabled = true;
+        commentInput.disabled = true;
+        addCommentBtn.disabled = true;
+        startBtn.disabled = false;
+        endBtn.disabled = true;
+        operatorSelect.disabled = false;
+        lineBtn1.disabled = false;
+        lineBtn2.disabled = false;
+        shiftStateLabel.textContent = 'завершена';
+        sendToGoogleSheet({ activity: 'Завершение смены', type: 'shift_end' });
+        showToast('Смена завершена', 'success');
+    });
+
+    // ============ UI ============
+    function updateStatus() {
+        const total = Object.values(state.counts).reduce((s, v) => s + v, 0);
+        totalActivitiesEl.textContent = total;
+        breakTotalMin.textContent = fmtMin(totalBreakMinutes());
+        breakTimeLabel.textContent = fmtMin(totalBreakMinutes());
+    }
+    function updateSummary() { updateChart(); }
+
+    function updateChart() {
+        const stats = {};
+        currentActivities().forEach(a => stats[a.channel] = (stats[a.channel] || 0) + (state.counts[a.key] || 0));
+        const labels = Object.keys(stats);
+        const values = labels.map(l => stats[l]);
+        const palette = ['#7C4DFF', '#9B6BFF', '#B58CFF', '#C9A8FF', '#6D3FE0', '#8B5CF6'];
+
+        if (chartInstance) chartInstance.destroy();
+        chartInstance = new Chart($('hoursChart').getContext('2d'), {
+            type: 'bar',
+            data: { labels, datasets: [{ data: values,
+                backgroundColor: labels.map((_,i) => palette[i % palette.length]),
+                borderRadius: 10, maxBarThickness: 52 }] },
+            options: { responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true }, x: { grid: { display: false } } } }
+        });
+    }
+
+    function renderLog() {
+        if (state.log.length === 0) {
+            logList.innerHTML = '<div class="empty-log">Активностей пока нет</div>';
+            return;
+        }
+        logList.innerHTML = '';
+        [...state.log].reverse().forEach(e => {
+            const item = document.createElement('div');
+            item.className = 'log-item';
+            let label = '', badge = '';
+            if (e.type === 'break') { label = '☕ Перерыв'; badge = e.minutes + ' мин'; }
+            else if (e.type === 'comment') { label = '💬 ' + e.text; badge = 'коммент'; }
+            else if (e.type === 'cancel') {
+                const act = currentActivities().find(a => a.key === e.key);
+                label = '➖ Отмена: ' + (act ? act.label : '');
+                badge = '−1';
+            } else {
+                const act = currentActivities().find(a => a.key === e.key);
+                label = act ? act.label : '';
+                badge = 'активность';
+            }
+            item.innerHTML = `
+                <span class="time">${fmtTime(e.timestamp)}</span>
+                <span class="label">${label}</span>
+                <span class="badge" style="background:#7C4DFF;">${badge}</span>
+            `;
+            logList.appendChild(item);
+        });
+    }
+
+    // ============ СТАРТ ============
+    setLine(1);
+    loadEmployees();
+    updateStatus();
+    updateChart();
+})();
+</script>
+</body>
+</html>
